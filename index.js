@@ -35,7 +35,7 @@ const io = new SocketIOServer(httpServer, {
 });
 
 // Initialize Service Container
-const serviceContainer = new ServiceContainer();
+const serviceContainer = new ServiceContainer(io);
 
 // Middleware
 app.use(express.json());
@@ -64,7 +64,7 @@ app.get('/health', (req, res) => {
 
 // WebSocket Setup
 const webSocketHandler = serviceContainer.getService('webSocketHandler');
-webSocketHandler.setupSocketHandlers(io);
+webSocketHandler.handleConnections();
 
 // Error Handler (must be last)
 app.use(errorHandler);

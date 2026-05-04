@@ -13,11 +13,12 @@ import { GetConversationMessagesUseCase } from '../usecase/GetConversationMessag
 import { CreateConversationUseCase } from '../usecase/CreateConversationUseCase.js';
 import { UserController } from '../controller/UserController.js';
 import { ConversationController } from '../controller/ConversationController.js';
-import { WebSocketHandler } from '../websocket/WebSocketHandler.js';
+import WebSocketHandler from '../websocket/WebSocketHandler.js';
 
 export class ServiceContainer {
-  constructor() {
+  constructor(io = null) {
     this.services = {};
+    this.io = io;
     this.initializeServices();
   }
 
@@ -64,12 +65,7 @@ export class ServiceContainer {
     );
 
     // WebSocket Handler
-    this.services.webSocketHandler = new WebSocketHandler(
-      this.services.sendMessageUseCase,
-      this.services.sendVoiceMessageUseCase,
-      this.services.getUserUseCase,
-      this.services.userRepository
-    );
+    this.services.webSocketHandler = new WebSocketHandler(this.io);
   }
 
   getService(serviceName) {
