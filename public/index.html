@@ -123,9 +123,59 @@
             opacity: 0.9;
         }
 
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .header-btn {
+            padding: 10px 16px;
+            border: none;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .header-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        .header-btn:active {
+            transform: scale(0.95);
+        }
+
+        .header-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .header-btn.calling {
+            animation: pulse-call 1s infinite;
+            background: rgba(255, 107, 107, 0.5);
+        }
+
+        @keyframes pulse-call {
+            0%, 100% {
+                background: rgba(255, 107, 107, 0.5);
+            }
+            50% {
+                background: rgba(255, 107, 107, 0.8);
+            }
+        }
+
         .status-badge {
             background: rgba(255, 255, 255, 0.2);
-            padding: 5px 10px;
+            padding: 8px 15px;
             border-radius: 20px;
             font-size: 12px;
         }
@@ -298,8 +348,13 @@
                         <span id="roomInfo">Loading...</span>
                     </div>
                 </div>
-                <div class="status-badge">
-                    <span id="status">Connecting...</span>
+                <div class="header-controls">
+                    <button id="videoCallBtn" class="header-btn" title="Start Video Call" onclick="startVideoCall()">
+                        📞
+                    </button>
+                    <div class="status-badge">
+                        <span id="status">Connecting...</span>
+                    </div>
                 </div>
             </div>
 
@@ -568,6 +623,66 @@
         setTimeout(() => {
             updateMembersList();
         }, 500);
+
+        // ===== VIDEO CALL FUNCTIONALITY =====
+        let ongoingCall = false;
+
+        function startVideoCall() {
+            if (roomMembers.length < 2) {
+                alert('⚠️ Need at least 2 members to make a video call');
+                return;
+            }
+
+            // Get another user (not current user)
+            const otherUsers = roomMembers.filter(member => member !== userId);
+            
+            if (otherUsers.length === 0) {
+                alert('⚠️ No other user available');
+                return;
+            }
+
+            const otherUser = otherUsers[0];
+            console.log('📞 Starting video call with:', otherUser);
+            
+            const videoCallBtn = document.getElementById('videoCallBtn');
+            videoCallBtn.disabled = true;
+            videoCallBtn.classList.add('calling');
+            
+            // Open new tab for video call
+            const videoCallWindow = window.open(
+                `videocall.html?caller=${userId}&callee=${otherUser}&room=${conversationId}`,
+                'videocall',
+                'width=1200,height=700'
+            );
+
+            if (!videoCallWindow) {
+                alert('⚠️ Pop-up blocked. Please allow pop-ups and try again.');
+                videoCallBtn.disabled = false;
+                videoCallBtn.classList.remove('calling');
+            } else {
+                ongoingCall = true;
+                addSystemMessage(`📞 Started video call with ${otherUser.substr(0, 8)}`);
+                
+                // Reset button after 30 seconds
+                setTimeout(() => {
+                    videoCallBtn.disabled = false;
+                    videoCallBtn.classList.remove('calling');
+                }, 30000);
+            }
+        }
+
+        // Listen for video call events
+        socket.on('videocall:started', (data) => {
+            addSystemMessage(`📞 ${data.userId} started a video call`);
+        });
+
+        socket.on('videocall:ended', (data) => {
+            const videoCallBtn = document.getElementById('videoCallBtn');
+            videoCallBtn.classList.remove('calling');
+            videoCallBtn.disabled = false;
+            ongoingCall = false;
+            addSystemMessage(`📞 Video call ended`);
+        });
     </script>
 </body>
 </html>
