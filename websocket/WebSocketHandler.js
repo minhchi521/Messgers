@@ -1,163 +1,175 @@
-/**
- * WebSocketHandler
- * Xử lý WebSocket events cho real-time chat
- */
-export class WebSocketHandler {
-  constructor(
-    sendMessageUseCase,
-    sendVoiceMessageUseCase,
-    getUserUseCase,
-    userRepository
-  ) {
-    this.sendMessageUseCase = sendMessageUseCase;
-    this.sendVoiceMessageUseCase = sendVoiceMessageUseCase;
-    this.getUserUseCase = getUserUseCase;
-    this.userRepository = userRepository;
-    this.onlineUsers = new Map(); // userId -> socketId
+export default class WebSocketHandler {
+  constructor(io) {
+    this.io = io;
+    this.userSockets = new Map(); // userId -> socket
+    this.roomMembers = new Map(); // conversationId -> [userIds]
   }
 
-  setupSocketHandlers(io) {
-    io.on('connection', (socket) => {
-      console.log('User connected:', socket.id);
+  handleConnections() {
+    this.io.on('connection', (socket) => {
+      console.log(`✅ User connected: ${socket.id}`);
 
-      // User joins
-      socket.on('user:join', async (data) => {
-        await this.handleUserJoin(socket, data);
+      // ===== JOIN CONVERSATION =====
+      socket.on('user:join', (data) => {
+        const { userId, conversationId } = data;
+
+        // Lưu mapping user -> socket
+        this.userSockets.set(userId, socket);
+
+        // Join vào room (Socket.IO feature)
+        socket.join(conversationId);
+
+        // Track members trong room
+        if (!this.roomMembers.has(conversationId)) {
+          this.roomMembers.set(conversationId, new Set());
+        }
+        this.roomMembers.get(conversationId).add(userId);
+
+        console.log(`👤 ${userId} joined ${conversationId}`);
+        console.log(`👥 Members in ${conversationId}: ${this.roomMembers.get(conversationId).size}`);
+
+        // Broadcast cho tất cả trong room
+        this.io.to(conversationId).emit('user:joined', {
+          userId,
+          timestamp: new Date().toISOString(),
+          totalMembers: this.roomMembers.get(conversationId).size
+        });
       });
 
-      // Send text message
-      socket.on('message:send', async (data) => {
-        await this.handleSendMessage(socket, io, data);
+      // ===== SEND TEXT MESSAGE =====
+      socket.on('message:send', (data) => {
+        const { senderId, content, conversationId } = data;
+
+        const message = {
+          id: `msg-${Date.now()}`,
+          conversationId,
+          senderId,
+          content,
+          type: 'text',
+          createdAt: new Date().toISOString()
+        };
+
+        // Broadcast cho TẤT CẢ trong room (bao gồm sender)
+        this.io.to(conversationId).emit('message:received', {
+          message,
+          memberCount: this.roomMembers.get(conversationId)?.size || 0
+        });
+
+        console.log(`💬 Message from ${senderId} to ${conversationId}`);
       });
 
-      // Send voice message
-      socket.on('message:voice:send', async (data) => {
-        await this.handleSendVoiceMessage(socket, io, data);
+      // ===== SEND VOICE MESSAGE =====
+      socket.on('message:voice:send', (data) => {
+        const { senderId, audioUrl, duration, conversationId } = data;
+
+        const voiceMessage = {
+          id: `voice-${Date.now()}`,
+          conversationId,
+          senderId,
+          audioUrl,
+          duration,
+          type: 'voice',
+          createdAt: new Date().toISOString()
+        };
+
+        // Broadcast cho tất cả
+        this.io.to(conversationId).emit('message:voice:received', {
+          message: voiceMessage,
+          memberCount: this.roomMembers.get(conversationId)?.size || 0
+        });
+
+        console.log(`🎤 Voice message from ${senderId} to ${conversationId}`);
       });
 
-      // User typing
+      // ===== TYPING INDICATOR =====
       socket.on('user:typing', (data) => {
-        socket.broadcast.emit('user:typing', {
-          userId: data.userId,
-          conversationId: data.conversationId
+        const { userId, conversationId } = data;
+
+        // Broadcast cho tất cả EXCEPT sender
+        socket.broadcast.to(conversationId).emit('user:typing', {
+          userId,
+          timestamp: new Date().toISOString()
         });
       });
 
-      // User stops typing
       socket.on('user:stop-typing', (data) => {
-        socket.broadcast.emit('user:stop-typing', {
-          userId: data.userId,
-          conversationId: data.conversationId
+        const { userId, conversationId } = data;
+
+        socket.broadcast.to(conversationId).emit('user:stop-typing', {
+          userId
         });
       });
 
-      // Disconnect
+      // ===== GET ROOM INFO =====
+      socket.on('room:info', (data) => {
+        const { conversationId } = data;
+        const members = Array.from(this.roomMembers.get(conversationId) || []);
+
+        socket.emit('room:info:response', {
+          conversationId,
+          members,
+          memberCount: members.length
+        });
+      });
+
+      // ===== DISCONNECT =====
       socket.on('disconnect', () => {
-        this.handleUserDisconnect(socket, io);
+        // Tìm userId
+        let userId = null;
+        for (const [uid, sock] of this.userSockets.entries()) {
+          if (sock.id === socket.id) {
+            userId = uid;
+            break;
+          }
+        }
+
+        if (userId) {
+          this.userSockets.delete(userId);
+
+          // Remove từ tất cả rooms
+          for (const [conversationId, members] of this.roomMembers.entries()) {
+            if (members.has(userId)) {
+              members.delete(userId);
+
+              // Notify others
+              this.io.to(conversationId).emit('user:offline', {
+                userId,
+                memberCount: members.size
+              });
+
+              console.log(`❌ ${userId} left ${conversationId}`);
+            }
+          }
+        }
+
+        console.log(`🔌 User disconnected: ${socket.id}`);
       });
     });
   }
 
-  async handleUserJoin(socket, data) {
-    const { userId, conversationId } = data;
-    try {
-      const user = await this.getUserUseCase.executeById(userId);
-      await this.userRepository.update(userId, {
-        ...user,
-        isOnline: true
-      });
-
-      this.onlineUsers.set(userId, socket.id);
-      socket.join(conversationId);
-
-      socket.emit('user:joined', {
-        success: true,
-        message: 'Joined conversation',
-        user: user
-      });
-
-      // Thông báo cho các user khác
-      socket.broadcast.emit('user:online', {
-        userId: userId,
-        status: 'online'
-      });
-
-      console.log(`User ${userId} joined conversation ${conversationId}`);
-    } catch (error) {
-      socket.emit('error', {
-        message: error.message
+  // Method: Gửi tin nhắn cho specific user
+  sendDirectMessage(senderId, receiverId, message) {
+    const receiverSocket = this.userSockets.get(receiverId);
+    if (receiverSocket) {
+      receiverSocket.emit('message:direct', {
+        senderId,
+        message
       });
     }
   }
 
-  async handleSendMessage(socket, io, data) {
-    try {
-      const message = await this.sendMessageUseCase.execute({
-        senderId: data.senderId,
-        content: data.content,
-        conversationId: data.conversationId,
-        validate: () => {}
-      });
-
-      // Gửi message tới tất cả client trong conversation
-      io.to(data.conversationId).emit('message:received', {
-        message: message
-      });
-    } catch (error) {
-      socket.emit('error', {
-        message: error.message
-      });
-    }
+  // Method: Gửi tin nhắn cho room
+  broadcastToRoom(conversationId, eventName, data) {
+    this.io.to(conversationId).emit(eventName, data);
   }
 
-  async handleSendVoiceMessage(socket, io, data) {
-    try {
-      const voiceMessage = await this.sendVoiceMessageUseCase.execute({
-        senderId: data.senderId,
-        audioUrl: data.audioUrl,
-        duration: data.duration,
-        conversationId: data.conversationId,
-        validate: () => {}
-      });
-
-      // Gửi voice message tới tất cả client trong conversation
-      io.to(data.conversationId).emit('message:voice:received', {
-        message: voiceMessage
-      });
-    } catch (error) {
-      socket.emit('error', {
-        message: error.message
-      });
-    }
+  // Method: Lấy số members online trong room
+  getRoomMemberCount(conversationId) {
+    return this.roomMembers.get(conversationId)?.size || 0;
   }
 
-  async handleUserDisconnect(socket, io) {
-    console.log('User disconnected:', socket.id);
-
-    // Tìm userId từ onlineUsers
-    for (const [userId, socketId] of this.onlineUsers.entries()) {
-      if (socketId === socket.id) {
-        this.onlineUsers.delete(userId);
-        const user = await this.userRepository.findById(userId);
-        if (user) {
-          await this.userRepository.update(userId, {
-            ...user,
-            isOnline: false
-          });
-        }
-
-        io.emit('user:offline', {
-          userId: userId,
-          status: 'offline'
-        });
-
-        console.log(`User ${userId} went offline`);
-        break;
-      }
-    }
-  }
-
-  getOnlineUsers() {
-    return Array.from(this.onlineUsers.keys());
+  // Method: Lấy danh sách members online
+  getRoomMembers(conversationId) {
+    return Array.from(this.roomMembers.get(conversationId) || []);
   }
 }
