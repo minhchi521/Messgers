@@ -32,7 +32,6 @@ export class ServiceContainer {
     this.services.messageRepository = new MessageRepository();
     this.services.conversationRepository = new ConversationRepository();
     this.services.videoCallRepository = new VideoCallRepository();
-
     // Use Cases
     this.services.createUserUseCase = new CreateUserUseCase(
       this.services.userRepository
