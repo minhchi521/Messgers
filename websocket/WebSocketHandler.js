@@ -1,13 +1,16 @@
+import { logger } from '../utils/logger.js';
+
 export default class WebSocketHandler {
   constructor(io) {
     this.io = io;
     this.userSockets = new Map(); // userId -> socket
     this.roomMembers = new Map(); // conversationId -> [userIds]
+    this.logger = logger.createChild('WebSocket');
   }
 
   handleConnections() {
     this.io.on('connection', (socket) => {
-      console.log(`✅ User connected: ${socket.id}`);
+      this.logger.info(`User connected: ${socket.id}`);
 
       // ===== JOIN CONVERSATION =====
       socket.on('user:join', (data) => {
@@ -25,8 +28,7 @@ export default class WebSocketHandler {
         }
         this.roomMembers.get(conversationId).add(userId);
 
-        console.log(`👤 ${userId} joined ${conversationId}`);
-        console.log(`👥 Members in ${conversationId}: ${this.roomMembers.get(conversationId).size}`);
+        this.logger.logSocket('user:join', userId, { conversationId, members: this.roomMembers.get(conversationId).size });
 
         // Broadcast cho tất cả trong room
         this.io.to(conversationId).emit('user:joined', {
