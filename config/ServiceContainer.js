@@ -16,6 +16,7 @@ import { InitiateVideoCallUseCase } from '../usecase/InitiateVideoCallUseCase.js
 import { RespondVideoCallUseCase } from '../usecase/RespondVideoCallUseCase.js';
 import { UserController } from '../controller/UserController.js';
 import { ConversationController } from '../controller/ConversationController.js';
+import { VideoCallController } from '../controller/VideoCallController.js';
 import WebSocketHandler from '../websocket/WebSocketHandler.js';
 
 export class ServiceContainer {
@@ -73,6 +74,10 @@ export class ServiceContainer {
     this.services.conversationController = new ConversationController(
       this.services.createConversationUseCase,
       this.services.getConversationMessagesUseCase
+    );
+    this.services.videoCallController = new VideoCallController(
+      this.services.initiateVideoCallUseCase,
+      this.services.respondVideoCallUseCase
     );
 
     // WebSocket Handler

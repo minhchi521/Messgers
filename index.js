@@ -9,6 +9,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import dotenv from 'dotenv';
 import { setupUserRoutes } from './router/userRoutes.js';
 import { setupConversationRoutes } from './router/conversationRoutes.js';
+import { setupVideoCallRoutes } from './router/videoCallRoutes.js';
 import {
   errorHandler,
   loggingMiddleware,
@@ -49,9 +50,11 @@ app.use(express.static('public'));
 // Routes
 const userController = serviceContainer.getService('userController');
 const conversationController = serviceContainer.getService('conversationController');
+const videoCallController = serviceContainer.getService('videoCallController');
 
 app.use('/api/users', setupUserRoutes(express, userController));
 app.use('/api/conversations', setupConversationRoutes(express, conversationController));
+app.use('/api/calls', setupVideoCallRoutes(express, videoCallController));
 
 // Health check
 app.get('/health', (req, res) => {
