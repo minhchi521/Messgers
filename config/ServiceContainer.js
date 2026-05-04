@@ -5,12 +5,15 @@
 import { UserRepository } from '../repository/UserRepository.js';
 import { MessageRepository } from '../repository/MessageRepository.js';
 import { ConversationRepository } from '../repository/ConversationRepository.js';
+import { VideoCallRepository } from '../repository/VideoCallRepository.js';
 import { CreateUserUseCase } from '../usecase/CreateUserUseCase.js';
 import { GetUserUseCase } from '../usecase/GetUserUseCase.js';
 import { SendMessageUseCase } from '../usecase/SendMessageUseCase.js';
 import { SendVoiceMessageUseCase } from '../usecase/SendVoiceMessageUseCase.js';
 import { GetConversationMessagesUseCase } from '../usecase/GetConversationMessagesUseCase.js';
 import { CreateConversationUseCase } from '../usecase/CreateConversationUseCase.js';
+import { InitiateVideoCallUseCase } from '../usecase/InitiateVideoCallUseCase.js';
+import { RespondVideoCallUseCase } from '../usecase/RespondVideoCallUseCase.js';
 import { UserController } from '../controller/UserController.js';
 import { ConversationController } from '../controller/ConversationController.js';
 import WebSocketHandler from '../websocket/WebSocketHandler.js';
@@ -27,6 +30,7 @@ export class ServiceContainer {
     this.services.userRepository = new UserRepository();
     this.services.messageRepository = new MessageRepository();
     this.services.conversationRepository = new ConversationRepository();
+    this.services.videoCallRepository = new VideoCallRepository();
 
     // Use Cases
     this.services.createUserUseCase = new CreateUserUseCase(
@@ -52,6 +56,13 @@ export class ServiceContainer {
     this.services.createConversationUseCase = new CreateConversationUseCase(
       this.services.conversationRepository,
       this.services.userRepository
+    );
+    this.services.initiateVideoCallUseCase = new InitiateVideoCallUseCase(
+      this.services.videoCallRepository,
+      this.services.userRepository
+    );
+    this.services.respondVideoCallUseCase = new RespondVideoCallUseCase(
+      this.services.videoCallRepository
     );
 
     // Controllers
