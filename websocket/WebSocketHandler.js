@@ -112,6 +112,84 @@ export default class WebSocketHandler {
         });
       });
 
+      // ===== VIDEO CALL: INITIATE =====
+      socket.on('call:initiate', (data) => {
+        const { callId, initiatorId, receiverId, conversationId } = data;
+
+        // Gửi offer cho receiver
+        const receiverSocket = this.userSockets.get(receiverId);
+        if (receiverSocket) {
+          receiverSocket.emit('call:incoming', {
+            callId,
+            initiatorId,
+            conversationId
+          });
+        }
+
+        console.log(`📞 Call initiated: ${initiatorId} → ${receiverId}`);
+      });
+
+      // ===== VIDEO CALL: ACCEPT =====
+      socket.on('call:accept', (data) => {
+        const { callId, initiatorId, receiverId } = data;
+
+        // Notify initiator
+        const initiatorSocket = this.userSockets.get(initiatorId);
+        if (initiatorSocket) {
+          initiatorSocket.emit('call:accepted', {
+            callId,
+            receiverId
+          });
+        }
+
+        console.log(`✅ Call accepted: ${receiverId}`);
+      });
+
+      // ===== VIDEO CALL: REJECT =====
+      socket.on('call:reject', (data) => {
+        const { callId, initiatorId, receiverId } = data;
+
+        // Notify initiator
+        const initiatorSocket = this.userSockets.get(initiatorId);
+        if (initiatorSocket) {
+          initiatorSocket.emit('call:rejected', {
+            callId,
+            receiverId
+          });
+        }
+
+        console.log(`❌ Call rejected: ${receiverId}`);
+      });
+
+      // ===== VIDEO CALL: WEBRTC SIGNAL =====
+      socket.on('webrtc:signal', (data) => {
+        const { to, signal } = data;
+
+        const targetSocket = this.userSockets.get(to);
+        if (targetSocket) {
+          targetSocket.emit('webrtc:signal', {
+            from: socket.id,
+            signal
+          });
+        }
+      });
+
+      // ===== VIDEO CALL: END =====
+      socket.on('call:end', (data) => {
+        const { callId, initiatorId, receiverId } = data;
+
+        // Notify the other user
+        const targetId = initiatorId === socket.id ? receiverId : initiatorId;
+        const targetSocket = this.userSockets.get(targetId);
+        if (targetSocket) {
+          targetSocket.emit('call:ended', {
+            callId
+          });
+        }
+
+        console.log(`📞 Call ended: ${callId}`);
+      });
+
       // ===== DISCONNECT =====
       socket.on('disconnect', () => {
         // Tìm userId
