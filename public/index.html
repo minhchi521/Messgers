@@ -626,6 +626,11 @@
 
         // ===== VIDEO CALL FUNCTIONALITY =====
         let ongoingCall = false;
+        let currentCallData = null;
+
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
 
         function startVideoCall() {
             if (roomMembers.length < 2) {
@@ -648,35 +653,48 @@
             videoCallBtn.disabled = true;
             videoCallBtn.classList.add('calling');
             
-            // Open new tab for video call
-            const videoCallWindow = window.open(
-                `call.html?caller=${userId}&callee=${otherUser}`,
-                'videocall',
-                'width=1200,height=700'
-            );
-
-            if (!videoCallWindow) {
-                alert('⚠️ Pop-up blocked. Please allow pop-ups and try again.');
-                videoCallBtn.disabled = false;
-                videoCallBtn.classList.remove('calling');
-            } else {
-                ongoingCall = true;
-                addSystemMessage(`📞 Started video call with ${otherUser.substr(0, 8)}`);
-                // Notify server to inform the callee
-                const callId = 'call-' + Date.now();
-                socket.emit('call:initiate', {
-                    callId,
-                    initiatorId: userId,
-                    receiverId: otherUser,
-                    conversationId
-                });
-                
-                // Reset button after 30 seconds
+            const callId = 'call-' + Date.now();
+            const isMobile = isMobileDevice();
+            
+            // Notify server to inform the callee
+            socket.emit('call:initiate', {
+                callId,
+                initiatorId: userId,
+                receiverId: otherUser,
+                conversationId,
+                isMobile: isMobile
+            });
+            
+            ongoingCall = true;
+            addSystemMessage(`📞 Started video call with ${otherUser.substr(0, 8)}`);
+            
+            // For mobile: navigate to call page, for desktop: open in new tab
+            if (isMobile) {
+                // Navigate in same window on mobile
                 setTimeout(() => {
+                    window.location.href = `call.html?caller=${userId}&callee=${otherUser}&callId=${callId}`;
+                }, 500);
+            } else {
+                // Open new tab on desktop
+                const videoCallWindow = window.open(
+                    `call.html?caller=${userId}&callee=${otherUser}&callId=${callId}`,
+                    'videocall',
+                    'width=1200,height=700'
+                );
+
+                if (!videoCallWindow) {
+                    alert('⚠️ Pop-up blocked. Please allow pop-ups and try again.');
                     videoCallBtn.disabled = false;
                     videoCallBtn.classList.remove('calling');
-                }, 30000);
+                    ongoingCall = false;
+                }
             }
+            
+            // Reset button after 30 seconds if call not established
+            setTimeout(() => {
+                videoCallBtn.disabled = false;
+                videoCallBtn.classList.remove('calling');
+            }, 30000);
         }
 
         // Listen for video call events
@@ -689,25 +707,46 @@
             const { callId, initiatorId, conversationId } = data;
             console.log('📥 Incoming call from', initiatorId, data);
 
-            // Prompt user to accept/reject.
-            const accept = confirm(`Incoming call from ${initiatorId.substr(0,8)}. Accept?`);
+            currentCallData = { callId, initiatorId, conversationId };
+            
+            const isMobile = isMobileDevice();
 
-            if (accept) {
-                // Notify server and open call page as callee
-                socket.emit('call:accept', { callId, initiatorId, receiverId: userId });
+            if (isMobile) {
+                // On mobile: use confirm prompt
+                const accept = confirm(`📞 Incoming call from ${initiatorId.substr(0,12)}. Accept?`);
 
-                // Open call page (callee)
-                const win = window.open(
-                    `call.html?caller=${initiatorId}&callee=${userId}`,
-                    'videocall',
-                    'width=1200,height=700'
-                );
-                if (!win) {
-                    alert('⚠️ Pop-up blocked. Please allow pop-ups and try again.');
+                if (accept) {
+                    socket.emit('call:accept', { callId, initiatorId, receiverId: userId });
+                    addSystemMessage('✅ Call accepted');
+                    // Navigate to call page
+                    setTimeout(() => {
+                        window.location.href = `call.html?caller=${initiatorId}&callee=${userId}&callId=${callId}`;
+                    }, 300);
+                } else {
+                    socket.emit('call:reject', { callId, initiatorId, receiverId: userId });
+                    addSystemMessage('❌ You rejected a call');
                 }
             } else {
-                socket.emit('call:reject', { callId, initiatorId, receiverId: userId });
-                addSystemMessage('📞 You rejected a call');
+                // On desktop: use confirm and open in new tab
+                const accept = confirm(`📞 Incoming call from ${initiatorId.substr(0,12)}. Accept?`);
+
+                if (accept) {
+                    socket.emit('call:accept', { callId, initiatorId, receiverId: userId });
+                    addSystemMessage('✅ Call accepted');
+                    
+                    // Open call page in new tab
+                    const win = window.open(
+                        `call.html?caller=${initiatorId}&callee=${userId}&callId=${callId}`,
+                        'videocall',
+                        'width=1200,height=700'
+                    );
+                    if (!win) {
+                        alert('⚠️ Pop-up blocked. Please allow pop-ups.');
+                    }
+                } else {
+                    socket.emit('call:reject', { callId, initiatorId, receiverId: userId });
+                    addSystemMessage('❌ You rejected a call');
+                }
             }
         });
 

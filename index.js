@@ -5,7 +5,9 @@
  */
 import express from 'express';
 import { createServer } from 'http';
+import https from 'https';
 import { Server as SocketIOServer } from 'socket.io';
+import fs from 'fs';
 import dotenv from 'dotenv';
 import { setupUserRoutes } from './router/userRoutes.js';
 import { setupConversationRoutes } from './router/conversationRoutes.js';
@@ -24,10 +26,30 @@ dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const USE_HTTPS = process.env.USE_HTTPS === 'true';
 
 // Initialize Express app
 const app = express();
-const httpServer = createServer(app);
+
+// Create HTTP/HTTPS server
+let httpServer;
+if (USE_HTTPS) {
+  try {
+    const options = {
+      key: fs.readFileSync('./key.pem'),
+      cert: fs.readFileSync('./cert.pem')
+    };
+    httpServer = https.createServer(options, app);
+    console.log('🔐 HTTPS enabled');
+  } catch (err) {
+    console.error('❌ HTTPS cert not found. Generate with: node generate-cert.js');
+    console.error('❌ Falling back to HTTP');
+    httpServer = createServer(app);
+  }
+} else {
+  httpServer = createServer(app);
+}
+
 const io = new SocketIOServer(httpServer, {
   cors: {
     origin: '*',
@@ -73,6 +95,9 @@ webSocketHandler.handleConnections();
 app.use(errorHandler);
 
 // Start Server
+const protocol = USE_HTTPS ? 'https' : 'http';
+const url = `${protocol}://localhost:${PORT}`;
+
 httpServer.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════╗
@@ -81,7 +106,9 @@ httpServer.listen(PORT, () => {
 ╠════════════════════════════════════════╣
 ║  Server started on port ${PORT}          ║
 ║  Environment: ${NODE_ENV}               ║
-║  URL: http://localhost:${PORT}          ║
+║  Protocol: ${USE_HTTPS ? 'HTTPS 🔐' : 'HTTP'}            ║
+║  URL: ${url}          ║
+║  Mobile: https://YOUR_IP:${PORT}        ║
 ╚════════════════════════════════════════╝
   `);
 });
