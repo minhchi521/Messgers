@@ -293,7 +293,7 @@
                 // Detect mobile device
                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                 
-                // Mobile-friendly constraints
+                // Optimize constraints for bandwidth
                 const constraints = {
                     audio: {
                         echoCancellation: true,
@@ -303,12 +303,12 @@
                     video: isMobile ? 
                         {
                             facingMode: 'user',
-                            width: { ideal: 480 },
-                            height: { ideal: 640 }
+                            width: { ideal: 320, min: 240 },
+                            height: { ideal: 240, min: 180 }
                         } :
                         {
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
+                            width: { ideal: 640, min: 480 },
+                            height: { ideal: 480, min: 360 }
                         }
                 };
                 
@@ -319,7 +319,7 @@
                     log('Retrying with basic constraints...');
                     localStream = await navigator.mediaDevices.getUserMedia({
                         audio: true,
-                        video: { facingMode: 'user' }
+                        video: { facingMode: 'user', width: { max: 240 }, height: { max: 180 } }
                     });
                 }
 
@@ -355,9 +355,27 @@
         function createPeerConnection() {
             pc = new RTCPeerConnection(ICE_SERVERS);
 
-            // Add local tracks
+            // Add local tracks with bandwidth optimization
             localStream.getTracks().forEach(track => {
-                pc.addTrack(track, localStream);
+                const sender = pc.addTrack(track, localStream);
+                
+                // Set bandwidth limits for mobile optimization
+                if (track.kind === 'video') {
+                    const params = sender.getParameters();
+                    if (!params.encodings) {
+                        params.encodings = [{}];
+                    }
+                    params.encodings[0].maxBitrate = 500000; // 500 kbps for video
+                    params.encodings[0].maxFramerate = 24;
+                    sender.setParameters(params).catch(err => console.log('Failed to set video bitrate:', err));
+                } else if (track.kind === 'audio') {
+                    const params = sender.getParameters();
+                    if (!params.encodings) {
+                        params.encodings = [{}];
+                    }
+                    params.encodings[0].maxBitrate = 50000; // 50 kbps for audio
+                    sender.setParameters(params).catch(err => console.log('Failed to set audio bitrate:', err));
+                }
             });
 
             // Handle remote track
@@ -392,6 +410,8 @@
                     callStartTime = Date.now();
                     startDurationTimer();
                     document.getElementById('duration').style.display = 'block';
+                    // Monitor bandwidth after connection
+                    monitorBandwidth();
                 }
             };
 
@@ -522,6 +542,51 @@
                     document.getElementById('duration').textContent = formatted;
                 }
             }, 1000);
+        }
+
+        // ============ BANDWIDTH MONITORING ============
+        function monitorBandwidth() {
+            let lastBytesSent = 0;
+            let lastBytesReceived = 0;
+            let lastTime = Date.now();
+
+            setInterval(async () => {
+                if (!pc || pc.connectionState !== 'connected') return;
+
+                try {
+                    const stats = await pc.getStats();
+                    let inboundBitrate = 0;
+                    let outboundBitrate = 0;
+
+                    stats.forEach(report => {
+                        if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                            const bytes = report.bytesReceived;
+                            const now = Date.now();
+                            const timeDiff = (now - lastTime) / 1000;
+                            if (lastBytesReceived > 0) {
+                                inboundBitrate = ((bytes - lastBytesReceived) * 8) / timeDiff / 1000; // kbps
+                            }
+                            lastBytesReceived = bytes;
+                        }
+                        if (report.type === 'outbound-rtp' && report.kind === 'video') {
+                            const bytes = report.bytesSent;
+                            const now = Date.now();
+                            const timeDiff = (now - lastTime) / 1000;
+                            if (lastBytesSent > 0) {
+                                outboundBitrate = ((bytes - lastBytesSent) * 8) / timeDiff / 1000; // kbps
+                            }
+                            lastBytesSent = bytes;
+                        }
+                    });
+
+                    lastTime = Date.now();
+
+                    // Log bandwidth info
+                    console.log(`📊 Bandwidth - Down: ${inboundBitrate.toFixed(0)} kbps, Up: ${outboundBitrate.toFixed(0)} kbps`);
+                } catch (err) {
+                    console.error('Error monitoring bandwidth:', err);
+                }
+            }, 2000);
         }
 
         function cleanup() {
