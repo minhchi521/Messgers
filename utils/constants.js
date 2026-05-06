@@ -79,14 +79,13 @@ export const SOCKET_EVENTS = {
   VOICE_RECEIVED: 'message:voice:received',
   
   // Video Call
-  CALL_INITIATE: 'videocall:initiate',
-  CALL_INCOMING: 'videocall:incoming',
-  CALL_ACCEPT: 'videocall:accept',
-  CALL_REJECT: 'videocall:reject',
-  CALL_OFFER: 'videocall:offer',
-  CALL_ANSWER: 'videocall:answer',
-  ICE_CANDIDATE: 'videocall:ice-candidate',
-  CALL_END: 'videocall:end',
+  CALL_INITIATE: 'call:initiate',
+  CALL_INCOMING: 'call:incoming',
+  CALL_ACCEPT: 'call:accept',
+  CALL_REJECTED: 'call:rejected',
+  CALL_ACCEPTED: 'call:accepted',
+  CALL_END: 'call:end',
+  WEBRTC_SIGNAL: 'webrtc:signal',
   
   // User
   USER_JOIN: 'user:join',
