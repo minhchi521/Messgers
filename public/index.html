@@ -662,6 +662,14 @@
             } else {
                 ongoingCall = true;
                 addSystemMessage(`📞 Started video call with ${otherUser.substr(0, 8)}`);
+                // Notify server to inform the callee
+                const callId = 'call-' + Date.now();
+                socket.emit('call:initiate', {
+                    callId,
+                    initiatorId: userId,
+                    receiverId: otherUser,
+                    conversationId
+                });
                 
                 // Reset button after 30 seconds
                 setTimeout(() => {
@@ -674,6 +682,60 @@
         // Listen for video call events
         socket.on('videocall:started', (data) => {
             addSystemMessage(`📞 ${data.userId} started a video call`);
+        });
+
+        // Incoming call (callee)
+        socket.on('call:incoming', (data) => {
+            const { callId, initiatorId, conversationId } = data;
+            console.log('📥 Incoming call from', initiatorId, data);
+
+            // Prompt user to accept/reject.
+            const accept = confirm(`Incoming call from ${initiatorId.substr(0,8)}. Accept?`);
+
+            if (accept) {
+                // Notify server and open call page as callee
+                socket.emit('call:accept', { callId, initiatorId, receiverId: userId });
+
+                // Open call page (callee)
+                const win = window.open(
+                    `call.html?caller=${initiatorId}&callee=${userId}`,
+                    'videocall',
+                    'width=1200,height=700'
+                );
+                if (!win) {
+                    alert('⚠️ Pop-up blocked. Please allow pop-ups and try again.');
+                }
+            } else {
+                socket.emit('call:reject', { callId, initiatorId, receiverId: userId });
+                addSystemMessage('📞 You rejected a call');
+            }
+        });
+
+        // Call accepted (initiator)
+        socket.on('call:accepted', (data) => {
+            const { callId, receiverId } = data;
+            console.log('✅ Call accepted by', receiverId, data);
+            addSystemMessage(`📞 ${receiverId.substr(0,8)} accepted the call`);
+        });
+
+        // Call rejected (initiator)
+        socket.on('call:rejected', (data) => {
+            const { callId, receiverId } = data;
+            console.log('❌ Call rejected by', receiverId, data);
+            addSystemMessage(`📞 ${receiverId.substr(0,8)} rejected the call`);
+            const videoCallBtn = document.getElementById('videoCallBtn');
+            videoCallBtn.classList.remove('calling');
+            videoCallBtn.disabled = false;
+            ongoingCall = false;
+        });
+
+        // Call ended
+        socket.on('call:ended', (data) => {
+            addSystemMessage('📞 Call ended');
+            const videoCallBtn = document.getElementById('videoCallBtn');
+            videoCallBtn.classList.remove('calling');
+            videoCallBtn.disabled = false;
+            ongoingCall = false;
         });
 
         socket.on('videocall:ended', (data) => {

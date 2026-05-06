@@ -28,9 +28,11 @@ export default class WebSocketHandler {
         }
         this.roomMembers.get(conversationId).add(userId);
 
-        this.logger.logSocket('user:join', userId, { conversationId, members: this.roomMembers.get(conversationId).size });
+  this.logger.logSocket('user:join', userId, { conversationId, members: this.roomMembers.get(conversationId).size });
+  // Debug: print current mapping size and mapping for this user
+  this.logger.info(`userSockets size=${this.userSockets.size} mapping[${userId}]=${socket.id}`);
 
-        // Broadcast cho tất cả trong room
+  // Broadcast cho tất cả trong room
         this.io.to(conversationId).emit('user:joined', {
           userId,
           timestamp: new Date().toISOString(),
@@ -120,12 +122,23 @@ export default class WebSocketHandler {
 
         // Gửi offer cho receiver
         const receiverSocket = this.userSockets.get(receiverId);
+        this.logger.info(`call:initiate received callId=${callId} from=${initiatorId} to=${receiverId}, receiverSocket=${receiverSocket ? receiverSocket.id : 'NOT_FOUND'}`);
         if (receiverSocket) {
           receiverSocket.emit('call:incoming', {
             callId,
             initiatorId,
             conversationId
           });
+        } else {
+          // Notify initiator that callee not available
+          const initiatorSocket = this.userSockets.get(initiatorId);
+          if (initiatorSocket) {
+            initiatorSocket.emit('call:rejected', {
+              callId,
+              receiverId,
+              reason: 'callee-offline'
+            });
+          }
         }
 
         console.log(`📞 Call initiated: ${initiatorId} → ${receiverId}`);
