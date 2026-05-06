@@ -20,7 +20,24 @@
         }
 
         .container {
-            max-width: 1000px;
+            max-w            ongoingCall = true;
+            addSystemMessage(`📞 Started video call with ${otherUser.substr(0, 8)}`);
+            
+            // Store call data in sessionStorage
+            sessionStorage.setItem('callData', JSON.stringify({
+                callId,
+                initiatorId: userId,
+                receiverId: otherUser,
+                timestamp: Date.now()
+            }));
+            
+            // For mobile: navigate to call page, for desktop: open in new tab
+            if (isMobile) {
+                // Navigate in same window on mobile (keeps socket alive)
+                setTimeout(() => {
+                    window.location.href = `call.html?caller=${userId}&callee=${otherUser}&callId=${callId}`;
+                }, 500);
+            } else {px;
             margin: 0 auto;
             display: grid;
             grid-template-columns: 250px 1fr;
@@ -718,6 +735,15 @@
                 if (accept) {
                     socket.emit('call:accept', { callId, initiatorId, receiverId: userId });
                     addSystemMessage('✅ Call accepted');
+                    
+                    // Store call data in sessionStorage to persist through navigation
+                    sessionStorage.setItem('callData', JSON.stringify({
+                        callId,
+                        initiatorId,
+                        receiverId: userId,
+                        timestamp: Date.now()
+                    }));
+                    
                     // Navigate to call page
                     setTimeout(() => {
                         window.location.href = `call.html?caller=${initiatorId}&callee=${userId}&callId=${callId}`;

@@ -35,14 +35,29 @@ const app = express();
 let httpServer;
 if (USE_HTTPS) {
   try {
-    const options = {
-      key: fs.readFileSync('./key.pem'),
-      cert: fs.readFileSync('./cert.pem')
-    };
+    let options;
+    
+    // Try PEM format first
+    if (fs.existsSync('./cert.pem') && fs.existsSync('./key.pem')) {
+      options = {
+        key: fs.readFileSync('./key.pem'),
+        cert: fs.readFileSync('./cert.pem')
+      };
+    } 
+    // Fallback to PFX format
+    else if (fs.existsSync('./cert.pfx')) {
+      options = {
+        pfx: fs.readFileSync('./cert.pfx'),
+        passphrase: 'pass'
+      };
+    } else {
+      throw new Error('Certificates not found');
+    }
+    
     httpServer = https.createServer(options, app);
     console.log('🔐 HTTPS enabled');
   } catch (err) {
-    console.error('❌ HTTPS cert not found. Generate with: node generate-cert.js');
+    console.error('❌ HTTPS cert not found. Generate with: node setup-https.js');
     console.error('❌ Falling back to HTTP');
     httpServer = createServer(app);
   }
