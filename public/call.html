@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Video Call - Chat App</title>
+
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -13,58 +15,26 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #000;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            color: white;
+            font-family: Arial, sans-serif;
             overflow: hidden;
         }
 
-        .call-container {
-            width: 100%;
-            height: 100%;
+        .container {
+            width: 100vw;
+            height: 100vh;
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 5px;
             padding: 5px;
-            background: #000;
-        }
-
-        @media (max-width: 768px) {
-            .call-container {
-                grid-template-columns: 1fr;
-                grid-template-rows: 1fr 120px;
-            }
-
-            .remote {
-                grid-row: 1;
-                grid-column: 1;
-            }
-
-            .local {
-                grid-row: 1;
-                grid-column: 1;
-                width: 120px;
-                height: 120px;
-                position: absolute;
-                bottom: 130px;
-                right: 10px;
-                border-radius: 12px;
-                border: 3px solid white;
-                z-index: 20;
-            }
         }
 
         .video-box {
-            background: #111;
-            border-radius: 8px;
-            overflow: hidden;
             position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: #111;
+            border-radius: 10px;
+            overflow: hidden;
         }
 
         video {
@@ -73,531 +43,471 @@
             object-fit: cover;
         }
 
-        .local video {
+        #localVideo {
             transform: scaleX(-1);
         }
 
         .label {
             position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px 12px;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.6);
+            padding: 6px 12px;
             border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            z-index: 10;
-        }
-
-        .status {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            z-index: 10;
-        }
-
-        .duration {
-            position: absolute;
-            bottom: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: bold;
-            z-index: 10;
+            font-size: 14px;
         }
 
         .controls {
             position: fixed;
-            bottom: 30px;
+            bottom: 25px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 12px;
-            z-index: 100;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px 25px;
-            border-radius: 50px;
+            gap: 15px;
+            z-index: 999;
         }
 
-        .control-btn {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border: none;
-            font-size: 22px;
-            cursor: pointer;
-            background: #667eea;
-            color: white;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .control-btn:hover {
-            background: #5568d3;
-            transform: scale(1.1);
-        }
-
-        .control-btn.off {
-            background: #ff6b6b;
-        }
-
-        .control-btn.end-call {
-            background: #ff6b6b;
+        button {
             width: 60px;
             height: 60px;
-            font-size: 28px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
         }
 
-        .control-btn.end-call:hover {
-            background: #ff5252;
+        .end {
+            background: red;
+            color: white;
         }
 
-        .call-info {
+        .toggle {
+            background: #444;
+            color: white;
+        }
+
+        .status {
             position: fixed;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 15px 25px;
-            border-radius: 10px;
-            text-align: center;
-            z-index: 20;
-        }
-
-        .call-status-text {
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
-
-        .call-duration-text {
-            font-size: 18px;
-            font-weight: bold;
-            color: #10b981;
-        }
-
-        .error-msg {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #ff6b6b;
-            color: white;
-            padding: 15px 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 18px;
             border-radius: 8px;
-            max-width: 300px;
-            z-index: 100;
+            z-index: 999;
         }
 
-        @media (max-width: 768px) {
-            .call-container {
+        @media(max-width:768px) {
+            .container {
                 grid-template-columns: 1fr;
+            }
+
+            .local-box {
+                width: 120px;
+                height: 180px;
+                position: absolute;
+                bottom: 120px;
+                right: 10px;
+                z-index: 999;
+                border: 3px solid white;
             }
         }
     </style>
 </head>
+
 <body>
-    <div class="call-container">
-        <div class="video-box local">
-            <video id="localVideo" autoplay muted playsinline></video>
-            <div class="label">You</div>
-        </div>
 
-        <div class="video-box remote">
-            <video id="remoteVideo" autoplay playsinline></video>
-            <div class="label" id="remoteLabel">Waiting for remote...</div>
-            <div class="duration" id="duration" style="display: none;">00:00</div>
-        </div>
+<div class="status" id="status">
+    Connecting...
+</div>
 
-        <div class="status" id="status">Initializing...</div>
+<div class="container">
+
+    <div class="video-box local-box">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <div class="label">You</div>
     </div>
 
-    <div class="call-info" id="callInfo">
-        <div class="call-status-text" id="callStatusText">Connecting...</div>
-        <div class="call-duration-text" id="callDurationText">00:00</div>
+    <div class="video-box">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <div class="label" id="remoteLabel">Remote User</div>
     </div>
 
-    <div class="controls">
-        <button class="control-btn" id="audioBtn" title="Mute/Unmute">🎤</button>
-        <button class="control-btn" id="videoBtn" title="Camera On/Off">📹</button>
-        <button class="control-btn end-call" id="endBtn" title="End Call">☎️</button>
-    </div>
+</div>
 
-    <div class="error-msg" id="errorMsg" style="display: none;"></div>
+<div class="controls">
+    <button class="toggle" id="micBtn">🎤</button>
+    <button class="toggle" id="cameraBtn">📹</button>
+    <button class="end" id="endBtn">☎️</button>
+</div>
 
-    <script>
-        // ============ CONFIG ============
-        const ICE_SERVERS = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        };
+<script>
 
-        // Utility: Check if we can use getUserMedia
-        function checkMediaAccess() {
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            const isHTTPS = window.location.protocol === 'https:';
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const canUseGetUserMedia = isHTTPS || isLocalhost;
-            
-            return { isMobile, isHTTPS, isLocalhost, canUseGetUserMedia };
-        }
+    // ==============================
+    // CONFIG
+    // ==============================
 
-        // ============ STATE ============
-        const socket = io();
-        const params = new URLSearchParams(window.location.search);
-        
-        const myId = params.get('caller') || params.get('callee') || ('user-' + Math.random());
-        const targetId = params.get('callee') || params.get('caller');
-        const isInitiator = params.get('caller') !== null;
-        const mediaAccess = checkMediaAccess();
+    const socket = io({
+        transports: ['websocket']
+    });
 
-        let pc = null;
-        let localStream = null;
-        let audioEnabled = true;
-        let videoEnabled = true;
-        let callStartTime = null;
-        let connectionState = 'waiting';
+    const params = new URLSearchParams(window.location.search);
 
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const audioBtn = document.getElementById('audioBtn');
-        const videoBtn = document.getElementById('videoBtn');
-        const endBtn = document.getElementById('endBtn');
-        const errorMsg = document.getElementById('errorMsg');
-        const callStatusText = document.getElementById('callStatusText');
-        const callDurationText = document.getElementById('callDurationText');
-        const status = document.getElementById('status');
-        const remoteLabel = document.getElementById('remoteLabel');
+    const myId =
+        params.get('caller') ||
+        params.get('callee') ||
+        ('user-' + Math.random().toString(36).substring(2, 8));
 
-        // ============ UTILS ============
-        function log(msg) {
-            console.log('[CALL]', msg);
-            callStatusText.textContent = msg;
-        }
+    const targetId =
+        params.get('callee') ||
+        params.get('caller');
 
-        function error(msg) {
-            console.error('[ERROR]', msg);
-            errorMsg.textContent = msg;
-            errorMsg.style.display = 'block';
-            callStatusText.textContent = 'Error: ' + msg;
-            setTimeout(() => errorMsg.style.display = 'none', 5000);
-        }
+    const isInitiator = params.get('caller') !== null;
 
-        // ============ INIT ============
-        async function init() {
-            try {
-                log('Getting camera & microphone...');
-                
-                // Check if media access is available
-                if (!mediaAccess.canUseGetUserMedia) {
-                    error(`⚠️ HTTPS is required for camera access on mobile.
-                    
-Please use:
-1. HTTPS (with valid certificate)
-2. Or localhost: http://127.0.0.1:3000
-3. Or laptop IP on same WiFi (http://192.168.x.x:3000)
-                    `);
-                    setTimeout(() => {
-                        window.history.back();
-                    }, 5000);
-                    return;
-                }
-                
-                // Mobile-friendly constraints
-                const constraints = {
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    },
-                    video: mediaAccess.isMobile ? 
-                        {
-                            facingMode: { ideal: 'user' },
-                            width: { ideal: 360 },
-                            height: { ideal: 480 },
-                            frameRate: { ideal: 24 }
-                        } :
-                        {
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 },
-                            frameRate: { ideal: 30 }
-                        }
-                };
-                
-                try {
-                    localStream = await navigator.mediaDevices.getUserMedia(constraints);
-                    log('Camera ready ✓');
-                } catch (err) {
-                    console.error('getUserMedia error:', err.name, err.message);
-                    
-                    if (err.name === 'NotAllowedError') {
-                        error('❌ Permission denied. Allow camera & microphone in settings.');
-                    } else if (err.name === 'NotFoundError') {
-                        error('❌ Camera/microphone not found.');
-                    } else if (err.name === 'NotReadableError') {
-                        error('❌ Camera/microphone in use. Close other apps.');
-                    } else {
-                        // Fallback to basic constraints
-                        log('Retrying with basic constraints...');
-                        try {
-                            localStream = await navigator.mediaDevices.getUserMedia({
-                                audio: true,
-                                video: true
-                            });
-                            log('Camera ready (basic) ✓');
-                        } catch (fallbackErr) {
-                            error('❌ Failed to access camera: ' + fallbackErr.message);
-                            return;
-                        }
-                    }
-                }
+    const ICE_SERVERS = {
+        iceServers: [
 
-                localVideo.srcObject = localStream;
-                if (localStream) log('Camera & Mic ready ✓');
+            // STUN
+            {
+                urls: 'stun:stun.l.google.com:19302'
+            },
 
-                // Create peer connection
-                createPeerConnection();
+            // TURN
+            {
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
 
-                // If initiator, start the call
-                if (isInitiator) {
-                    setTimeout(() => {
-                        log('Sending offer...');
-                        createAndSendOffer();
-                    }, 1000);
-                } else {
-                    log('Waiting for offer...');
-                }
-            } catch (err) {
-                error('Failed to access camera: ' + err.message);
-                
-                // If it's HTTPS/permission error, show helpful message
-                if (err.name === 'NotAllowedError') {
-                    error('⚠️ Camera/Mic permission denied. Please allow access in browser settings.');
-                } else if (err.name === 'NotFoundError') {
-                    error('⚠️ Camera/Microphone not found.');
-                } else if (err.name === 'NotSupportedError' || window.location.protocol !== 'https:') {
-                    error('⚠️ HTTPS is required for mobile. Please use HTTPS or request desktop browser.');
-                }
+            {
+                urls: 'turn:openrelay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+
+            {
+                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
             }
+        ]
+    };
+
+    // ==============================
+    // STATE
+    // ==============================
+
+    let pc;
+    let localStream;
+
+    let micEnabled = true;
+    let cameraEnabled = true;
+
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+
+    const statusDiv = document.getElementById('status');
+
+    const micBtn = document.getElementById('micBtn');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const endBtn = document.getElementById('endBtn');
+
+    // ==============================
+    // LOG
+    // ==============================
+
+    function log(msg) {
+        console.log(msg);
+        statusDiv.innerText = msg;
+    }
+
+    function error(msg) {
+        console.error(msg);
+        statusDiv.innerText = msg;
+    }
+
+    // ==============================
+    // INIT
+    // ==============================
+
+    socket.on('connect', async () => {
+
+        log('Socket connected');
+
+        socket.emit('user:join', {
+            userId: myId
+        });
+
+        await initMedia();
+        createPeerConnection();
+
+        if (isInitiator) {
+
+            setTimeout(async () => {
+                await createOffer();
+            }, 1000);
+
+        } else {
+            log('Waiting for offer...');
         }
+    });
 
-        function createPeerConnection() {
-            pc = new RTCPeerConnection(ICE_SERVERS);
+    // ==============================
+    // MEDIA
+    // ==============================
 
-            // Add local tracks
-            localStream.getTracks().forEach(track => {
-                pc.addTrack(track, localStream);
+    async function initMedia() {
+
+        try {
+
+            localStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true
             });
 
-            // Handle remote track
-            pc.ontrack = (event) => {
-                console.log('Remote track received:', event.track.kind);
-                remoteVideo.srcObject = event.streams[0];
-                remoteLabel.textContent = targetId.substr(0, 12);
-            };
+            localVideo.srcObject = localStream;
 
-            // Handle ICE candidates
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    console.log('Sending ICE candidate');
-                    socket.emit('webrtc:signal', {
-                        to: targetId,
-                        signal: {
-                            type: 'ice',
-                            candidate: event.candidate
-                        }
-                    });
-                }
-            };
+            log('Camera ready');
 
-            // Monitor connection state
-            pc.onconnectionstatechange = () => {
-                connectionState = pc.connectionState;
-                console.log('Connection state:', pc.connectionState);
-                status.textContent = 'Connection: ' + pc.connectionState;
+        } catch (err) {
 
-                if (pc.connectionState === 'connected') {
-                    log('Video connected!');
-                    callStartTime = Date.now();
-                    startDurationTimer();
-                    document.getElementById('duration').style.display = 'block';
-                }
-            };
+            error('Camera error: ' + err.message);
 
-            pc.oniceconnectionstatechange = () => {
-                console.log('ICE connection state:', pc.iceConnectionState);
-            };
-
-            console.log('Peer connection created');
         }
+    }
 
-        async function createAndSendOffer() {
-            try {
-                const offer = await pc.createOffer({
-                    offerToReceiveAudio: true,
-                    offerToReceiveVideo: true
-                });
+    // ==============================
+    // PEER
+    // ==============================
 
-                await pc.setLocalDescription(offer);
-                console.log('Offer created');
+    function createPeerConnection() {
+
+        pc = new RTCPeerConnection(ICE_SERVERS);
+
+        // add local tracks
+        localStream.getTracks().forEach(track => {
+            pc.addTrack(track, localStream);
+        });
+
+        // remote stream
+        pc.ontrack = (event) => {
+
+            console.log('Remote stream received');
+
+            remoteVideo.srcObject = event.streams[0];
+        };
+
+        // send ICE
+        pc.onicecandidate = (event) => {
+
+            if (event.candidate) {
 
                 socket.emit('webrtc:signal', {
                     to: targetId,
                     signal: {
-                        type: 'offer',
-                        offer: offer
+                        type: 'ice',
+                        candidate: event.candidate
+                    }
+                });
+            }
+        };
+
+        // connection state
+        pc.onconnectionstatechange = () => {
+
+            console.log('Connection state:', pc.connectionState);
+
+            if (pc.connectionState === 'connected') {
+                log('✅ Video connected');
+            }
+
+            if (pc.connectionState === 'failed') {
+                error('❌ Connection failed');
+            }
+        };
+
+        // ICE state
+        pc.oniceconnectionstatechange = () => {
+
+            console.log('ICE state:', pc.iceConnectionState);
+
+            if (pc.iceConnectionState === 'connected') {
+                log('✅ ICE connected');
+            }
+
+            if (pc.iceConnectionState === 'failed') {
+                error('❌ ICE failed');
+            }
+        };
+    }
+
+    // ==============================
+    // OFFER
+    // ==============================
+
+    async function createOffer() {
+
+        try {
+
+            log('Creating offer...');
+
+            const offer = await pc.createOffer();
+
+            await pc.setLocalDescription(offer);
+
+            socket.emit('webrtc:signal', {
+                to: targetId,
+                signal: {
+                    type: 'offer',
+                    offer
+                }
+            });
+
+            log('Offer sent');
+
+        } catch (err) {
+
+            error('Offer error: ' + err.message);
+
+        }
+    }
+
+    // ==============================
+    // SIGNALS
+    // ==============================
+
+    socket.on('webrtc:signal', async (data) => {
+
+        const { signal } = data;
+
+        try {
+
+            // OFFER
+            if (signal.type === 'offer') {
+
+                console.log('Received offer');
+
+                await pc.setRemoteDescription(
+                    new RTCSessionDescription(signal.offer)
+                );
+
+                const answer = await pc.createAnswer();
+
+                await pc.setLocalDescription(answer);
+
+                socket.emit('webrtc:signal', {
+                    to: targetId,
+                    signal: {
+                        type: 'answer',
+                        answer
                     }
                 });
 
-                log('Offer sent, waiting for answer...');
-            } catch (err) {
-                error('Failed to create offer: ' + err.message);
+                log('Answer sent');
             }
+
+            // ANSWER
+            if (signal.type === 'answer') {
+
+                console.log('Received answer');
+
+                await pc.setRemoteDescription(
+                    new RTCSessionDescription(signal.answer)
+                );
+
+                log('Answer received');
+            }
+
+            // ICE
+            if (signal.type === 'ice') {
+
+                try {
+
+                    await pc.addIceCandidate(
+                        new RTCIceCandidate(signal.candidate)
+                    );
+
+                } catch (err) {
+
+                    console.warn('ICE candidate failed', err);
+
+                }
+            }
+
+        } catch (err) {
+
+            error('Signal error: ' + err.message);
+
+        }
+    });
+
+    // ==============================
+    // MIC
+    // ==============================
+
+    micBtn.onclick = () => {
+
+        micEnabled = !micEnabled;
+
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = micEnabled;
+        });
+
+        micBtn.innerText =
+            micEnabled ? '🎤' : '🔇';
+    };
+
+    // ==============================
+    // CAMERA
+    // ==============================
+
+    cameraBtn.onclick = () => {
+
+        cameraEnabled = !cameraEnabled;
+
+        localStream.getVideoTracks().forEach(track => {
+            track.enabled = cameraEnabled;
+        });
+
+        cameraBtn.innerText =
+            cameraEnabled ? '📹' : '⛔';
+    };
+
+    // ==============================
+    // END CALL
+    // ==============================
+
+    endBtn.onclick = () => {
+
+        cleanup();
+
+        window.close();
+    };
+
+    // ==============================
+    // CLEANUP
+    // ==============================
+
+    function cleanup() {
+
+        if (pc) {
+            pc.close();
+            pc = null;
         }
 
-        // ============ SOCKET EVENTS ============
-        socket.on('connect', () => {
-            console.log('Connected to server');
-            init();
-        });
+        if (localStream) {
 
-        socket.on('webrtc:signal', async (data) => {
-            const { signal } = data;
-
-            try {
-                if (signal.type === 'offer') {
-                    console.log('Received offer');
-                    
-                    if (!pc) createPeerConnection();
-                    
-                    await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
-                    
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-
-                    socket.emit('webrtc:signal', {
-                        to: targetId,
-                        signal: {
-                            type: 'answer',
-                            answer: answer
-                        }
-                    });
-
-                    log('Answer sent');
-                }
-
-                if (signal.type === 'answer') {
-                    console.log('Received answer');
-                    await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
-                    log('Answer set');
-                }
-
-                if (signal.type === 'ice') {
-                    console.log('Received ICE candidate');
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-                    } catch (err) {
-                        console.warn('Failed to add ICE candidate:', err);
-                    }
-                }
-            } catch (err) {
-                error('Signal error: ' + err.message);
-            }
-        });
-
-        socket.on('webrtc:error', (data) => {
-            error(data.message);
-        });
-
-        socket.on('disconnect', () => {
-            log('Disconnected from server');
-        });
-
-        // ============ CONTROLS ============
-        audioBtn.addEventListener('click', () => {
-            audioEnabled = !audioEnabled;
-            localStream.getAudioTracks().forEach(track => {
-                track.enabled = audioEnabled;
+            localStream.getTracks().forEach(track => {
+                track.stop();
             });
-            audioBtn.classList.toggle('off', !audioEnabled);
-            audioBtn.textContent = audioEnabled ? '🎤' : '🔇';
-            console.log('Audio:', audioEnabled ? 'ON' : 'OFF');
-        });
 
-        videoBtn.addEventListener('click', () => {
-            videoEnabled = !videoEnabled;
-            localStream.getVideoTracks().forEach(track => {
-                track.enabled = videoEnabled;
-            });
-            videoBtn.classList.toggle('off', !videoEnabled);
-            videoBtn.textContent = videoEnabled ? '📹' : '⛔';
-            console.log('Video:', videoEnabled ? 'ON' : 'OFF');
-        });
-
-        endBtn.addEventListener('click', () => {
-            log('Ending call...');
-            cleanup();
-            
-            // Detect mobile
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            
-            setTimeout(() => {
-                if (isMobile) {
-                    // On mobile: go back to chat
-                    window.history.back();
-                } else {
-                    // On desktop: close the window
-                    window.close();
-                }
-            }, 500);
-        });
-
-        function startDurationTimer() {
-            setInterval(() => {
-                if (callStartTime && connectionState === 'connected') {
-                    const duration = Math.floor((Date.now() - callStartTime) / 1000);
-                    const mins = Math.floor(duration / 60);
-                    const secs = duration % 60;
-                    const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-                    callDurationText.textContent = formatted;
-                    document.getElementById('duration').textContent = formatted;
-                }
-            }, 1000);
+            localStream = null;
         }
+    }
 
-        function cleanup() {
-            if (pc) {
-                pc.close();
-                pc = null;
-            }
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-        }
+    window.addEventListener('beforeunload', cleanup);
 
-        window.addEventListener('beforeunload', cleanup);
+</script>
 
-        // Log state
-        console.log('Call Config:', {
-            myId,
-            targetId,
-            isInitiator,
-            params: Object.fromEntries(params)
-        });
-    </script>
 </body>
 </html>
